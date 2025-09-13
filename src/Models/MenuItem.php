@@ -58,12 +58,12 @@ class MenuItem extends Model
         return $this->belongsTo(FilamentMenuPlugin::get()->getMenuModel());
     }
 
-    public function parent(): BelongsTo
+    public function parent()
     {
         return $this->belongsTo(static::class);
     }
 
-    public function children(): HasMany
+    public function children()
     {
         /** @phpstan-ignore-next-line */
         return $this->hasMany(static::class, 'parent_id')
