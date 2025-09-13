@@ -1,4 +1,4 @@
-import esbuild from 'esbuild'
+import * as esbuild from 'esbuild'
 
 const isDev = process.argv.includes('--dev')
 
@@ -27,7 +27,7 @@ const defaultOptions = {
     minify: !isDev,
     plugins: [{
         name: 'watchPlugin',
-        setup: function (build) {
+        setup(build) {
             build.onStart(() => {
                 console.log(`Build started at ${new Date(Date.now()).toLocaleTimeString()}: ${build.initialOptions.outfile}`)
             })
@@ -46,5 +46,5 @@ const defaultOptions = {
 compile({
     ...defaultOptions,
     entryPoints: ['./resources/js/index.js'],
-    outfile: './resources/dist/skeleton.js',
+    outfile: './resources/dist/filament-menu.js',
 })

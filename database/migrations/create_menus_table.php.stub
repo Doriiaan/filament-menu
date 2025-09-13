@@ -1,0 +1,37 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+use Doriiaan\FilamentMenu\Models\Menu;
+use Doriiaan\FilamentMenu\Models\MenuItem;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create(config('filament-menu.tables.menus'), function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->boolean('is_visible')->default(true);
+            $table->timestamps();
+        });
+
+        Schema::create(config('filament-menu.tables.menu_items'), function (Blueprint $table) {
+            $table->id();
+            $table->foreignIdFor(Menu::class)->constrained()->cascadeOnDelete();
+            $table->foreignIdFor(MenuItem::class, 'parent_id')->nullable()->constrained($table->getTable())->nullOnDelete();
+            $table->nullableMorphs('linkable');
+            $table->string('title');
+            $table->string('url')->nullable();
+            $table->integer('order')->default(0);
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists(config('filament-menu.tables.menu_items'));
+        Schema::dropIfExists(config('filament-menu.tables.menus'));
+    }
+};

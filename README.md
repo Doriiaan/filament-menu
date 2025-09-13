@@ -1,67 +1,323 @@
-# :package_description
+# A filament menu, inspired by datlechin/filament-menu-builder to reproduce Wordpress menu system
 
-[![Latest Version on Packagist](https://img.shields.io/packagist/v/:vendor_slug/:package_slug.svg?style=flat-square)](https://packagist.org/packages/:vendor_slug/:package_slug)
-[![GitHub Tests Action Status](https://img.shields.io/github/actions/workflow/status/:vendor_slug/:package_slug/run-tests.yml?branch=main&label=tests&style=flat-square)](https://github.com/:vendor_slug/:package_slug/actions?query=workflow%3Arun-tests+branch%3Amain)
-[![GitHub Code Style Action Status](https://img.shields.io/github/actions/workflow/status/:vendor_slug/:package_slug/fix-php-code-style-issues.yml?branch=main&label=code%20style&style=flat-square)](https://github.com/:vendor_slug/:package_slug/actions?query=workflow%3A"Fix+PHP+code+styling"+branch%3Amain)
-[![Total Downloads](https://img.shields.io/packagist/dt/:vendor_slug/:package_slug.svg?style=flat-square)](https://packagist.org/packages/:vendor_slug/:package_slug)
+[![Latest Version on Packagist](https://img.shields.io/packagist/v/doriiaan/filament-menu.svg?style=flat-square)](https://packagist.org/packages/doriiaan/filament-menu)
+[![Total Downloads](https://img.shields.io/packagist/dt/doriiaan/filament-menu.svg?style=flat-square)](https://packagist.org/packages/doriiaan/filament-menu)
 
-<!--delete-->
----
-This repo can be used to scaffold a Filament plugin. Follow these steps to get started:
 
-1. Press the "Use this template" button at the top of this repo to create a new repo with the contents of this skeleton.
-2. Run "php ./configure.php" to run a script that will replace all placeholders throughout all the files.
-3. Make something great!
----
-<!--/delete-->
+Filament plugin.
+A filament menu, inspired by datlechin/filament-menu-builder to reproduce Wordpress menu system.
 
-This is where your description should go. Limit it to a paragraph or two. Consider adding a small example.
+Works with Filament v4 only.
 
 ## Installation
 
 You can install the package via composer:
 
 ```bash
-composer require :vendor_slug/:package_slug
+composer require doriiaan/filament-menu
 ```
 
-You can publish and run the migrations with:
+You need to publish the migrations and run them:
 
 ```bash
-php artisan vendor:publish --tag=":package_slug-migrations"
+php artisan vendor:publish --tag="filament-menu-migrations"
 php artisan migrate
 ```
 
 You can publish the config file with:
 
 ```bash
-php artisan vendor:publish --tag=":package_slug-config"
+php artisan vendor:publish --tag="filament-menu-config"
 ```
 
-Optionally, you can publish the views using
+Optionally, if you want to customize the views, you can publish them with:
 
 ```bash
-php artisan vendor:publish --tag=":package_slug-views"
+php artisan vendor:publish --tag="filament-menu-views"
 ```
 
 This is the contents of the published config file:
 
 ```php
 return [
+    'tables' => [
+        'menus' => 'menus',
+        'menu_items' => 'menu_items',
+    ],
 ];
+```
+
+Add the plugin to `AdminPanelProvider`:
+
+```php
+use Doriiaan\FilamentMenu\FilamentMenuPlugin;
+
+$panel
+    ...
+    ->plugin(FilamentMenuPlugin::make())
 ```
 
 ## Usage
 
+### Setting up Menu Panels
+
+Menu panels are the panels that contain the menu items which you can add to the menus.
+
+#### Custom Text Menu Panel
+
+This package provides a **Custom Text** menu panel that allows you to add custom text items to the menus.
+
+It is identical to the **Custom Link** menu panel except for the fact that you only set a title without a URL or target. This can be useful to add headers to mega-style menus.
+
+The panel is disabled by default to prevent visual clutter. To enable the Custom Text menu panel, you can use the following when configuring the plugin.
+
 ```php
-$variable = new VendorName\Skeleton();
-echo $variable->echoPhrase('Hello, VendorName!');
+use Doriiaan\FilamentMenu\FilamentMenuPlugin;
+
+$panel
+    ...
+    ->plugin(
+        FilamentMenuPlugin::make()
+            ->showCustomTextPanel()
+    )
 ```
 
-## Testing
+#### Model Menu Panel
 
-```bash
-composer test
+The model menu panel allows you to add menu items from a model.
+
+To create a model menu panel, your model must implement the `\Doriiaan\FilamentMenu\Contracts\MenuPanelable` interface and `\Doriiaan\FilamentMenu\Concerns\HasMenuPanel` trait.
+
+Then you must also implement the `getMenuPanelTitleColumn` and `getMenuPanelUrlUsing` methods. A complete example of this implementation is as follows:
+
+```php
+use Doriiaan\FilamentMenu\Concerns\HasMenuPanel;
+use Doriiaan\FilamentMenu\Contracts\MenuPanelable;
+use Illuminate\Database\Eloquent\Model;
+
+class Course extends Model implements MenuPanelable
+{
+    use HasMenuPanel;
+
+    public function getMenuPanelTitleColumn(): string
+    {
+        return 'title';
+    }
+
+    public function getMenuPanelUrlUsing(): callable
+    {
+        return fn (self $model) => route('courses.show', $model->slug);
+    }
+}
+```
+
+Then you can add the model menu panel to the plugin:
+
+```php
+use Doriiaan\FilamentMenu\FilamentMenuPlugin;
+use Doriiaan\FilamentMenu\MenuPanel\ModelMenuPanel;
+
+$panel
+    ...
+    ->plugin(
+        FilamentMenuPlugin::make()
+            ->addMenuPanels([
+                ModelMenuPanel::make()
+                    ->model(\App\Models\Category::class),
+            ])
+    )
+```
+
+![Model Menu Panel](art/course-model-panel.png)
+
+#### Additional Menu Panel Options
+
+When registering a menu panel, multiple methods are available allowing you to configure the panel's behavior such as collapse state and pagination.
+
+```php
+use Doriiaan\FilamentMenu\FilamentMenuPlugin;
+
+$panel
+    ...
+    ->plugin(
+        FilamentMenuPlugin::make()
+            ->addMenuPanels([
+                ModelMenuPanel::make()
+                    ->description('Lorem ipsum...')
+                    ->icon('heroicon-m-link')
+                    ->collapsed(true)
+                    ->collapsible(true)
+                    ->paginate(perPage: 5, condition: true)
+            ])
+    )
+```
+
+### Custom Fields
+
+In some cases, you may want to extend menu and menu items with custom fields. To do this, start by passing an array of form components to the `addMenuFields` and `addMenuItemFields` methods when registering the plugin:
+
+```php
+use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
+use Doriiaan\FilamentMenu\FilamentMenuPlugin;
+
+$panel
+    ...
+    ->plugin(
+        FilamentMenuPlugin::make()
+            ->addMenuFields([
+                Toggle::make('is_logged_in'),
+            ])
+            ->addMenuItemFields([
+                TextInput::make('classes'),
+            ])
+    )
+```
+
+Next, create a migration adding the additional columns to the appropriate tables:
+
+```php
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
+    {
+        Schema::table(config('filament-menu-builder.tables.menus'), function (Blueprint $table) {
+            $table->boolean('is_logged_in')->default(false);
+        });
+
+        Schema::table(config('filament-menu-builder.tables.menu_items'), function (Blueprint $table) {
+            $table->string('classes')->nullable();
+        });
+    }
+
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
+    {
+        Schema::table(config('filament-menu-builder.tables.menus'), function (Blueprint $table) {
+            $table->dropColumn('is_logged_in');
+        });
+
+        Schema::table(config('filament-menu-builder.tables.menu_items'), function (Blueprint $table) {
+            $table->dropColumn('classes');
+        });
+    }
+}
+```
+
+Once done, simply run `php artisan migrate`.
+
+### Customizing the Resource
+
+Out of the box, a default Menu Resource is registered with Filament when registering the plugin in the admin provider. This resource can be extended and overridden allowing for more fine-grained control.
+
+Start by extending the `Doriiaan\FilamentMenu\Resources\MenuResource` class in your application. Below is an example:
+
+```php
+namespace App\Filament\Plugins\Resources;
+
+use Doriiaan\FilamentMenu\Resources\MenuResource as BaseMenuResource;
+
+class MenuResource extends BaseMenuResource
+{
+    protected static ?string $navigationGroup = 'Navigation';
+
+    public static function getNavigationBadge(): ?string
+    {
+        return number_format(static::getModel()::count());
+    }
+}
+```
+
+Now pass the custom resource to `usingResource` while registering the plugin with the panel:
+
+```php
+use App\Filament\Plugins\Resources\MenuResource;
+use Doriiaan\FilamentMenu\FilamentMenuPlugin;
+
+$panel
+    ...
+    ->plugin(
+        FilamentMenuPlugin::make()
+            ->usingResource(MenuResource::class)
+    )
+```
+
+### Customizing the Models
+
+The default models used by the plugin can be configured and overridden similarly to the plugin resource as seen above.
+
+Simply extend the default models and then pass the classes when registering the plugin in the panel:
+
+```php
+use App\Models\Menu;
+use App\Models\MenuItem;
+use App\Models\MenuLocation;
+use Doriiaan\FilamentMenu\FilamentMenuPlugin;
+
+$panel
+    ...
+    ->plugin(
+        FilamentMenuPlugin::make()
+            ->usingMenuModel(Menu::class)
+            ->usingMenuItemModel(MenuItem::class)
+            ->usingMenuLocationModel(MenuLocation::class)
+    )
+```
+
+### Using Menus
+
+Getting the assigned menu for a registered location can be done using the `Menu` model. Below we will call the menu assigned to the `primary` location:
+
+```php
+use Doriiaan\FilamentMenu\Models\Menu;
+
+$menu = Menu::location('primary');
+```
+
+Menu items can be iterated from the `menuItems` relationship:
+
+```php
+@foreach ($menu->menuItems as $item)
+    <a href="{{ $item->url }}">{{ $item->title }}</a>
+@endforeach
+```
+
+When a menu item is a parent, a collection of the child menu items will be available on the `children` property:
+
+```php
+@foreach ($menu->menuItems as $item)
+    <a href="{{ $item->url }}">{{ $item->title }}</a>
+
+    @if ($item->children)
+        @foreach ($item->children as $child)
+            <a href="{{ $child->url }}">{{ $child->title }}</a>
+        @endforeach
+    @endif
+@endforeach
+```
+
+### Configuring Indent/Unindent Actions
+
+The package includes indent and unindent buttons that provide an alternative to drag-and-drop for organizing menu hierarchy. This feature is enabled by default but can be configured:
+
+```php
+use Doriiaan\FilamentMenu\FilamentMenuPlugin;
+
+$panel
+    ...
+    ->plugin(
+        FilamentMenuPlugin::make()
+            ->enableIndentActions(false) // Disable
+    )
 ```
 
 ## Changelog
@@ -78,7 +334,7 @@ Please review [our security policy](../../security/policy) on how to report secu
 
 ## Credits
 
-- [:author_name](https://github.com/:author_username)
+- [Dorian](https://github.com/Doriiaan)
 - [All Contributors](../../contributors)
 
 ## License
