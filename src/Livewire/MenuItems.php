@@ -33,6 +33,18 @@ class MenuItems extends Component implements HasActions, HasSchemas
 
     public Menu $menu;
 
+    protected Collection $indexed;
+
+    public function booted()
+    {
+        $this->indexed = FilamentMenuPlugin::get()
+            ->getMenuItemModel()::query()
+            ->with('linkable')
+            ->orderBy('order')
+            ->get()
+            ->keyBy('id');
+    }
+
     #[Computed]
     #[On('menu:created')]
     public function menuItems(): Collection
@@ -78,7 +90,7 @@ class MenuItems extends Component implements HasActions, HasSchemas
     public function indent(int $itemId): void
     {
         /** @var MenuItem */
-        $item = FilamentMenuPlugin::get()->getMenuItemModel()::query()->find($itemId);
+        $item = $this->indexed->get($itemId);
 
         if (! $item) {
             return;
@@ -110,7 +122,7 @@ class MenuItems extends Component implements HasActions, HasSchemas
     public function unindent(int $itemId): void
     {
         /** @var MenuItem */
-        $item = FilamentMenuPlugin::get()->getMenuItemModel()::query()->find($itemId);
+        $item = $this->indexed->get($itemId);
 
         if (! $item || ! $item->parent_id) {
             return;
@@ -134,6 +146,8 @@ class MenuItems extends Component implements HasActions, HasSchemas
         ]);
 
         $this->reorderSiblings($oldParentId);
+
+        $this->indexed->put($item->id, $item->fresh());
     }
 
     private function reorderSiblings(?int $parentId): void
@@ -182,28 +196,21 @@ class MenuItems extends Component implements HasActions, HasSchemas
     public function canIndent(int $itemId): bool
     {
         /** @var MenuItem */
-        $item = FilamentMenuPlugin::get()->getMenuItemModel()::query()->find($itemId);
+        $item = $item = $this->indexed->get($itemId);
 
         if (! $item) {
             return false;
         }
 
-        $previousSibling = FilamentMenuPlugin::get()->getMenuItemModel()::query()
-            ->where('menu_id', $item->menu_id)
+        return $this->indexed
             ->where('parent_id', $item->parent_id)
             ->where('order', '<', $item->order)
-            ->orderByDesc('order')
-            ->first();
-
-        return $previousSibling !== null;
+            ->isNotEmpty();
     }
 
     public function canUnindent(int $itemId): bool
     {
-        /** @var MenuItem */
-        $item = FilamentMenuPlugin::get()->getMenuItemModel()::query()->find($itemId);
-
-        return $item && $item->parent_id !== null;
+        return ($this->indexed[$itemId]->parent_id ?? null) !== null;
     }
 
     public function editAction(): Action

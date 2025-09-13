@@ -14,7 +14,7 @@
     data-sortable-item="{{ $item->getKey() }}"
     x-data="{ open: $persist(true).as('menu-item-' + {{ $item->getKey() }}) }"
     @class([
-        'mb-6 border-b border-gray-200 dark:border-gray-700 pb-6' => $parent,
+        'mb-6 pb-6' => $parent,
     ])
 >
     <div
@@ -53,7 +53,7 @@
             </div>
         </div>
         <div class="flex items-center gap-2">
-            <x-filament::badge :color="$item->type === 'internal' ? 'primary' : 'gray'" class="hidden sm:block">
+            <x-filament::badge :color="$item->type === 'internal' ? 'primary' : 'gray'">
                 {{ $item->type }}
             </x-filament::badge>
             {{ ($this->editAction)(['id' => $item->getKey(), 'title' => $item->title]) }}
